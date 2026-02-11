@@ -14,6 +14,7 @@ import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
 import java.io.ByteArrayOutputStream
+import android.util.Log
 import java.nio.ByteBuffer
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
@@ -52,12 +53,16 @@ class CameraCapture {
             val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
 
             provider.unbindAll()
-            provider.bindToLifecycle(
-                lifecycleOwner,
-                cameraSelector,
-                preview,
-                imageCapture
-            )
+            try {
+                provider.bindToLifecycle(
+                    lifecycleOwner,
+                    cameraSelector,
+                    preview,
+                    imageCapture
+                )
+            } catch (e: IllegalArgumentException) {
+                Log.e("CameraCapture", "No camera available on this device/emulator", e)
+            }
         }, ContextCompat.getMainExecutor(context))
     }
 
@@ -98,6 +103,7 @@ class CameraCapture {
         buffer.get(bytes)
 
         val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+            ?: throw IllegalStateException("Failed to decode camera image")
         val rotatedBitmap = rotateBitmap(bitmap, image.imageInfo.rotationDegrees.toFloat())
 
         val outputStream = ByteArrayOutputStream()
