@@ -10,6 +10,7 @@ import androidx.navigation.compose.rememberNavController
 import com.cubikspro.ui.viewmodel.SolverViewModel
 
 sealed class Screen(val route: String) {
+    data object Menu : Screen("menu")
     data object Camera : Screen("camera")
     data object Result : Screen("result")
     data object Settings : Screen("settings")
@@ -21,7 +22,17 @@ fun AppNavigation(viewModel: SolverViewModel = viewModel()) {
     val uiState by viewModel.uiState.collectAsState()
     val apiKey by viewModel.apiKey.collectAsState()
 
-    NavHost(navController = navController, startDestination = Screen.Camera.route) {
+    NavHost(navController = navController, startDestination = Screen.Menu.route) {
+        composable(Screen.Menu.route) {
+            MenuScreen(
+                currentApiKey = apiKey,
+                onApiKeySaved = { key -> viewModel.setApiKey(key) },
+                onStartCamera = {
+                    navController.navigate(Screen.Camera.route)
+                }
+            )
+        }
+
         composable(Screen.Camera.route) {
             CameraScreen(
                 onPhotoCaptured = { imageBytes ->
