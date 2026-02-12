@@ -3,6 +3,8 @@ package com.cubikspro.ui.screens
 import android.graphics.BitmapFactory
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -43,6 +45,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.cubikspro.ui.viewmodel.SolverUiState
 
@@ -53,6 +56,9 @@ fun ResultScreen(
     onBackClick: () -> Unit,
     onRetryClick: () -> Unit
 ) {
+    // When result is ready, the whole screen is tappable to go back to camera
+    val resultReady = uiState.result != null && !uiState.isLoading && uiState.error == null
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -68,81 +74,97 @@ fun ResultScreen(
             )
         }
     ) { padding ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp)
-        ) {
-            // Captured image preview
-            uiState.capturedImageBytes?.let { bytes ->
-                val bitmap = remember(bytes) {
-                    BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-                }
-                if (bitmap != null) {
-                    Image(
-                        bitmap = bitmap.asImageBitmap(),
-                        contentDescription = "Captured question",
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(200.dp)
-                            .clip(RoundedCornerShape(12.dp)),
-                        contentScale = ContentScale.Fit
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                }
-            }
-
-            when {
-                uiState.isLoading -> LoadingState()
-                uiState.error != null -> ErrorState(
-                    error = uiState.error,
-                    onRetryClick = onRetryClick
+                .then(
+                    if (resultReady) {
+                        Modifier.clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null
+                        ) { onBackClick() }
+                    } else {
+                        Modifier
+                    }
                 )
-                uiState.result != null -> {
-                    // Answer card
-                    AnswerCard(
-                        answer = uiState.result.answer,
-                        confidence = uiState.result.confidence
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(16.dp)
+            ) {
+                // Captured image preview
+                uiState.capturedImageBytes?.let { bytes ->
+                    val bitmap = remember(bytes) {
+                        BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                    }
+                    if (bitmap != null) {
+                        Image(
+                            bitmap = bitmap.asImageBitmap(),
+                            contentDescription = "Captured question",
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(200.dp)
+                                .clip(RoundedCornerShape(12.dp)),
+                            contentScale = ContentScale.Fit
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                    }
+                }
+
+                when {
+                    uiState.isLoading -> LoadingState()
+                    uiState.error != null -> ErrorState(
+                        error = uiState.error,
+                        onRetryClick = onRetryClick
                     )
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Question type
-                    if (uiState.result.questionType.isNotBlank()) {
-                        SectionCard(
-                            title = "Question Type",
-                            content = uiState.result.questionType.replaceFirstChar { it.uppercase() }
+                    uiState.result != null -> {
+                        // Answer card
+                        AnswerCard(
+                            answer = uiState.result.answer,
+                            confidence = uiState.result.confidence
                         )
-                        Spacer(modifier = Modifier.height(12.dp))
-                    }
 
-                    // Analysis
-                    if (uiState.result.analysis.isNotBlank()) {
-                        SectionCard(
-                            title = "Analysis",
-                            content = uiState.result.analysis
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // Question type
+                        if (uiState.result.questionType.isNotBlank()) {
+                            SectionCard(
+                                title = "Question Type",
+                                content = uiState.result.questionType.replaceFirstChar { it.uppercase() }
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                        }
+
+                        // Analysis
+                        if (uiState.result.analysis.isNotBlank()) {
+                            SectionCard(
+                                title = "Analysis",
+                                content = uiState.result.analysis
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                        }
+
+                        // Explanation
+                        if (uiState.result.explanation.isNotBlank()) {
+                            SectionCard(
+                                title = "Explanation",
+                                content = uiState.result.explanation
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(24.dp))
+
+                        // Tap hint
+                        Text(
+                            text = "Tap anywhere to scan another question",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth()
                         )
-                        Spacer(modifier = Modifier.height(12.dp))
-                    }
-
-                    // Explanation
-                    if (uiState.result.explanation.isNotBlank()) {
-                        SectionCard(
-                            title = "Explanation",
-                            content = uiState.result.explanation
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    // Scan another button
-                    Button(
-                        onClick = onBackClick,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("Scan Another Question")
                     }
                 }
             }

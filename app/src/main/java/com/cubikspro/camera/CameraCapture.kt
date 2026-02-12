@@ -47,7 +47,7 @@ class CameraCapture {
                 .also { it.setSurfaceProvider(previewView.surfaceProvider) }
 
             imageCapture = ImageCapture.Builder()
-                .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
+                .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
                 .build()
 
             val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
