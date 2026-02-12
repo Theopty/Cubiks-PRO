@@ -2,7 +2,6 @@ package com.cubikspro.camera
 
 import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture
@@ -15,7 +14,6 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
 import java.io.ByteArrayOutputStream
 import android.util.Log
-import java.nio.ByteBuffer
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
@@ -82,9 +80,14 @@ class CameraCapture {
             ContextCompat.getMainExecutor(context),
             object : ImageCapture.OnImageCapturedCallback() {
                 override fun onCaptureSuccess(image: ImageProxy) {
-                    val bytes = imageProxyToJpegBytes(image)
-                    image.close()
-                    continuation.resume(bytes)
+                    try {
+                        val bytes = imageProxyToJpegBytes(image)
+                        continuation.resume(bytes)
+                    } catch (e: Exception) {
+                        continuation.resumeWithException(e)
+                    } finally {
+                        image.close()
+                    }
                 }
 
                 override fun onError(exception: ImageCaptureException) {
@@ -96,14 +99,10 @@ class CameraCapture {
 
     /**
      * Convert an ImageProxy to compressed JPEG bytes.
+     * Uses toBitmap() which handles both JPEG and YUV_420_888 formats.
      */
     private fun imageProxyToJpegBytes(image: ImageProxy): ByteArray {
-        val buffer: ByteBuffer = image.planes[0].buffer
-        val bytes = ByteArray(buffer.remaining())
-        buffer.get(bytes)
-
-        val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-            ?: throw IllegalStateException("Failed to decode camera image")
+        val bitmap = image.toBitmap()
         val rotatedBitmap = rotateBitmap(bitmap, image.imageInfo.rotationDegrees.toFloat())
 
         val outputStream = ByteArrayOutputStream()
