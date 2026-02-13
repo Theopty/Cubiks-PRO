@@ -1,19 +1,16 @@
 package com.cubikspro.camera
 
 import android.content.Context
-import android.graphics.Bitmap
-import android.graphics.Matrix
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
-import androidx.camera.core.ImageProxy
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
-import java.io.ByteArrayOutputStream
 import android.util.Log
+import java.io.File
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
@@ -66,6 +63,7 @@ class CameraCapture {
 
     /**
      * Capture a photo and return it as JPEG bytes, suitable for sending to the API.
+     * Saves to a temp file which guarantees JPEG output on all devices.
      */
     suspend fun capturePhoto(context: Context): ByteArray = suspendCoroutine { continuation ->
         val capture = imageCapture
@@ -76,44 +74,30 @@ class CameraCapture {
             return@suspendCoroutine
         }
 
+        val tempFile = File.createTempFile("capture_", ".jpg", context.cacheDir)
+        val outputOptions = ImageCapture.OutputFileOptions.Builder(tempFile).build()
+
         capture.takePicture(
+            outputOptions,
             ContextCompat.getMainExecutor(context),
-            object : ImageCapture.OnImageCapturedCallback() {
-                override fun onCaptureSuccess(image: ImageProxy) {
+            object : ImageCapture.OnImageSavedCallback {
+                override fun onImageSaved(output: ImageCapture.OutputFileResults) {
                     try {
-                        val bytes = imageProxyToJpegBytes(image)
+                        val bytes = tempFile.readBytes()
                         continuation.resume(bytes)
                     } catch (e: Exception) {
                         continuation.resumeWithException(e)
                     } finally {
-                        image.close()
+                        tempFile.delete()
                     }
                 }
 
                 override fun onError(exception: ImageCaptureException) {
+                    tempFile.delete()
                     continuation.resumeWithException(exception)
                 }
             }
         )
-    }
-
-    /**
-     * Convert an ImageProxy to compressed JPEG bytes.
-     * Uses toBitmap() which handles both JPEG and YUV_420_888 formats.
-     */
-    private fun imageProxyToJpegBytes(image: ImageProxy): ByteArray {
-        val bitmap = image.toBitmap()
-        val rotatedBitmap = rotateBitmap(bitmap, image.imageInfo.rotationDegrees.toFloat())
-
-        val outputStream = ByteArrayOutputStream()
-        rotatedBitmap.compress(Bitmap.CompressFormat.JPEG, 85, outputStream)
-        return outputStream.toByteArray()
-    }
-
-    private fun rotateBitmap(bitmap: Bitmap, degrees: Float): Bitmap {
-        if (degrees == 0f) return bitmap
-        val matrix = Matrix().apply { postRotate(degrees) }
-        return Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
     }
 
     fun shutdown() {
